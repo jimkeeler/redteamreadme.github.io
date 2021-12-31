@@ -7,6 +7,8 @@ categories: tryhackme writeup
 ---
 ![Cyborg Banner](/assets/img/20211230212145.png)
 
+[Cyborg](https://tryhackme.com/room/cyborgt8) was an easy [TryHackMe](https://tryhackme.com) box involving misconfiguration and encrypted backup archives. You start by finding an open admin page that has a download link to an encrypted archive. There is a misconfigured squid proxy on the system that allows you to obtain the password, which is then easily cracked. The same password was used to encrypt the archive and the user has left their credentials in a plaintext file within. Those credentials will allow you to log in through SSH. Once on the system, you can escalate your privileges by modifying an MP3 backup script that has been granted sudo privileges.
+
 ## Initial Enumeration
 Let's start with a scan to see what kind of attack surface we're working with.
 
@@ -148,7 +150,7 @@ MD5(APR); that's [hash-mode](https://hashcat.net/wiki/doku.php?id=example_hashes
 
 ```console?prompt=>
 $ hashcat -m1600 -a0 --show '$apr1$BpZ.Q.1m$F0qqPwHSOG50URuOVQTTn.' /usr/share/seclists/Passwords/Leaked-Databases/rockyou.txt
-$apr1$BpZ.Q.1m$F0qqPwHSOG50URuOVQTTn.:squidward
+$apr1$BpZ.Q.1m$F0qqPwHSOG50URuOVQTTn.:REDACTED
 ```
 <div style="text-align: center; font-style: italic; font-size: 12px">Using hashcat to crack the squid hash</div>
 
@@ -189,7 +191,7 @@ home/alex/Pictures
 $ cat home/alex/Documents/note.txt
 Wow I'm awful at remembering Passwords so I've taken my Friends advice and noting them down!
 
-alex:S3cretP@s3
+alex:REDACTED
 ```
 <div style="text-align: center; font-style: italic; font-size: 12px">Explore the extracted archive</div>
 
@@ -224,7 +226,7 @@ applicable law.
 alex@ubuntu:~$ ls -al user.txt
 -r-xr--r-- 1 alex alex 40 Dec 30  2020 user.txt
 alex@ubuntu:~$ cat user.txt
-flag{1_hop3_y0u_ke3p_th3_arch1v3s_saf3}
+flag{REDACTED}
 alex@ubuntu:~$ 
 ```
 <div style="text-align: center; font-style: italic; font-size: 12px">Try the credentials on the SSH service</div>
@@ -269,6 +271,6 @@ root@ubuntu:/root# cd /root
 root@ubuntu:/root# ls -al root.txt
 -r-xr--r-- 1 root root 43 Dec 30  2020 root.txt
 root@ubuntu:/root# cat root.txt
-flag{Than5s_f0r_play1ng_H0p£_y0u_enJ053d}
+flag{REDACTED}
 root@ubuntu:/root# 
 ```
