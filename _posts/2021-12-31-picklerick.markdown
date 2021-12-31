@@ -9,6 +9,8 @@ categories: tryhackme writeup
 
 [Pickle Rick](https://tryhackme.com/room/picklerick) was a fun Rick and Morty themed CTF box from [TryHackMe](https://tryhackme.com). As you make your way through the system, you collect text files containing ingredients to turn Rick back into a human. There are three files; two of which are accessible to the www-data user. To read the third file, you must be root. You can gain initial access just by following a typical web enumeration methodology. Once inside the admin portal, there's a built-in web shell with some rudimentary restrictions that can be easily bypassed. Getting a shell is trivial and then the www-data user has NOPASSWD sudo privileges for instant root access.
 
+> 🔔 Please note: To comply with TryHackMe's write-up requirements, I've included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+
 ## Initial Enumeration
 I started my enumeration with a quick port scan.
 
