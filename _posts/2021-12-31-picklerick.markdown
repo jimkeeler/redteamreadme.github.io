@@ -7,7 +7,7 @@ categories: tryhackme writeup
 ---
 ![Pickle Rick Banner](/assets/img/20211230211943.png)
 
-Pickel Rick was a fun Rick and Morty themed CTF box. As you make your way through the system, you collect text files containing ingredients to turn Rick back into a human. There are three files; two of which are accessible to the www-data user. To read the third file, you must be root. You can gain initial access just by following a typical web enumeration methodology. Once inside the admin portal, there's a built-in web shell with some rudimentary restrictions that can be easily bypassed. Getting a shell is trivial and then the www-data user has NOPASSWD sudo privileges for instant root access.
+Pickle Rick was a fun Rick and Morty themed CTF box. As you make your way through the system, you collect text files containing ingredients to turn Rick back into a human. There are three files; two of which are accessible to the www-data user. To read the third file, you must be root. You can gain initial access just by following a typical web enumeration methodology. Once inside the admin portal, there's a built-in web shell with some rudimentary restrictions that can be easily bypassed. Getting a shell is trivial and then the www-data user has NOPASSWD sudo privileges for instant root access.
 
 ## Initial Enumeration
 I started my enumeration with a quick port scan.
