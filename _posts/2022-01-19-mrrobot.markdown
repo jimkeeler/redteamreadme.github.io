@@ -4,6 +4,7 @@ title:  "Mr Robot CTF - TryHackMe"
 author: "dnstun0 (Jim Keeler)"
 date:   2021-01-19 22:45:00 -0500
 categories: tryhackme writeup
+tags: medium
 ---
 ![Mr Robot Banner](/assets/img/20220114133259.png)
 

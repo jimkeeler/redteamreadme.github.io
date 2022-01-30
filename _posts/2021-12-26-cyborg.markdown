@@ -4,6 +4,7 @@ title:  "Cyborg - TryHackMe"
 author: "dnstun0 (Jim Keeler)"
 date:   2021-12-25 17:11:04 -0500
 categories: tryhackme writeup
+tags: easy
 ---
 ![Cyborg Banner](/assets/img/20211230212145.png)
 
