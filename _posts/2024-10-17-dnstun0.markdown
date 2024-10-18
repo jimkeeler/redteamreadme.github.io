@@ -1,0 +1,15 @@
+---
+layout: post
+title: "My Hacker Handle"
+author: "dnstun0 (Jim Keeler)"
+date: 2022-10-17 20:06:00 -0500
+---
+Anyone who's participated in an online community is familiar with the initiation ritual of choosing a handle. You know, that pseudonym everyone in the community will come to know you as. Some, whether by choice or ignorance, choose their given name (_johnsmith)_. Others choose their favorite sports team (_eaglesfan78_), animal (_reddragon_), or character from their preferred media platform (_picklerick_). And some, use no imagination at all (_user187384_). Hacker handles tend to be leetspeak or technical jargon and mine is no exception. Before we get to that though, let me provide a little context.
+
+Many years ago, I was browsing Slashdot (as one did before Reddit became a smash hit) and I came across [this article](https://slashdot.org/story/00/09/10/2230242/ip-tunneling-through-nameservers) on abusing DNS to surf the internet for free. This was one of the first "hacking" articles I'd ever read that struck me as absolutely brilliant.
+
+To quickly summarize: the author describes how IP traffic can be tunneled over DNS. Microsoft (at the time) provided toll-free PPP dialin numbers which, once you're connected, have DNS servers available. You could then just tunnel your traffic through those servers for free internet. It obviously required a pre-configured remote DNS server to extract the payload data and act as a proxy.
+
+This combination of wrapping network traffic in a commonly used protocol so it tricks the service into sending and receiving data for you, bypassing an internet gateway, and getting to surf the internet for free; profoundly struck me. It's been 24 years and I still think of this article on occasion. For these reasons, I chose to embody that awe in a hacker handle for myself: dnstun0. If you're unfamiliar with Linux networking, it may be a little cryptic. The first half, DNS, is obviously the DNS protocol. The second half, tun0, is the network interface name given to a tunneling interface on Linux. Therefore "dnstun0" describes a network interface tunnel over DNS.
+
+Putting a little bit of effort into choosing a handle can be a satisfying act of self-expression. I chose to use mine as an homage to hacking ingenuity and breaking the rules.
