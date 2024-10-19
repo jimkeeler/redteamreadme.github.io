@@ -2,7 +2,7 @@
 layout: post
 title: "My Hacker Handle"
 author: "dnstun0 (Jim Keeler)"
-date: 2022-10-17 20:06:00 -0500
+date: 2024-10-17 20:06:00 -0500
 ---
 Anyone who's participated in an online community is familiar with the initiation ritual of choosing a handle. You know, that pseudonym everyone in the community will come to know you as. Some, whether by choice or ignorance, choose their given name (_johnsmith)_. Others choose their favorite sports team (_eaglesfan78_), animal (_reddragon_), or character from their preferred media platform (_picklerick_). And some, use no imagination at all (_user187384_). Hacker handles tend to be leetspeak or technical jargon and mine is no exception. Before we get to that though, let me provide a little context.
 
