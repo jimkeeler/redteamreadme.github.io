@@ -241,7 +241,8 @@ bash: /root/.bashrc: Permission denied
 daemon@labyrinth:/opt/lampp/htdocs$ 
 ```
 
-## User flag
+# User flag
+
 Finding the user flag is straightforward. It's in the "user" home directory which is accessible to the _daemon_ user that we've just obtained access as.
 
 ```console
@@ -270,7 +271,7 @@ REDACTED
 
 On to the root flag.
 
-## Root flag
+# Root flag
 Listing everything under the root mount, you can see there's an unusual directory called `timers`.
 
 ```console
