@@ -1,0 +1,199 @@
+---
+layout: post
+title:  "Anthem - TryHackMe"
+author: "dnstun0 (Jim Keeler)"
+date:   2025-04-07 21:41:38 -0400
+categories: tryhackme writeup
+tags: easy
+---
+![Anthem Banner](/assets/img/anthem-banner.png)
+
+I completed another easy room today on [TryHackMe](https://tryhackme.com) trying to work myself into a new habit of doing write-ups regularly. [Anthem](https://tryhackme.com/room/anthem) is a great box for beginners because the only tool you need is nmap. All of the flags are discoverable using recon. Here we go!
+
+> 🔔 Please note: To comply with TryHackMe's write-up requirements, I've included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+
+## Task 1 - Website Analysis
+
+The questions for this task will guide you through all of the recon you need to complete the room. I'm going to intentionally skip over the flags you may come across and save them for the next section. I won't explicitly give you the answers to each question, but at the end of each subsection I'll include a checklist of the questions and which ones have been answered by the recon we've done so far.
+
+### Network Services Recon
+
+The first question reads "Let's run nmap and check what ports are open.", so let's do that now.
+
+```
+$ sudo nmap -Pn -T4 -A anthem
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-04-07 20:05 EDT
+Nmap scan report for anthem (10.10.21.18)
+Host is up (0.11s latency).
+Not shown: 998 filtered tcp ports (no-response)
+PORT     STATE SERVICE       VERSION
+80/tcp   open  http          Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+| http-robots.txt: 4 disallowed entries
+|_/bin/ /config/ /umbraco/ /umbraco_client/
+|_http-title: Anthem.com - Welcome to our blog
+3389/tcp open  ms-wbt-server Microsoft Terminal Services
+| rdp-ntlm-info:
+|   Target_Name: WIN-LU09299160F
+|   NetBIOS_Domain_Name: WIN-LU09299160F
+|   NetBIOS_Computer_Name: WIN-LU09299160F
+|   DNS_Domain_Name: WIN-LU09299160F
+|   DNS_Computer_Name: WIN-LU09299160F
+|   Product_Version: 10.0.17763
+|_  System_Time: 2025-04-08T00:05:45+00:00
+|_ssl-date: 2025-04-08T00:05:53+00:00; 0s from scanner time.
+| ssl-cert: Subject: commonName=WIN-LU09299160F
+| Not valid before: 2025-04-06T23:41:07
+|_Not valid after:  2025-10-06T23:41:07
+Warning: OSScan results may be unreliable because we could not find at least 1 open and 1 closed port
+OS fingerprint not ideal because: Missing a closed TCP port so results incomplete
+No OS matches for host
+Network Distance: 4 hops
+Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
+
+TRACEROUTE (using port 3389/tcp)
+HOP RTT       ADDRESS
+1   46.83 ms  10.6.0.1
+2   ... 3
+4   113.95 ms anthem (10.10.21.18)
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 35.88 seconds
+```
+
+The nmap output also provides answers to the next two questions as well.
+
+> - [x] Let's run namp and check what ports are open.
+> - [x] What port is for the web server?
+> - [x] What port is for remote desktop service?
+> - [ ] What is a possible password in one of the pages web crawlers check for?
+> - [ ] What CMS is the website using?
+> - [ ] What is the domain of the website?
+> - [ ] What's the name of the Administrator
+> - [ ] Can we find find the email address of the administrator?
+
+### Web Service Recon
+
+The next few questions are specific to the web service we discovered. At this point, when I discover a web service I like to use my browser to look around.
+
+![Anthem Web Service](/assets/img/anthem-1.png)
+
+It's serving a simple blog application with a couple of posts and authors. Finding the domains is pretty easy because the site creators have it as the title of the blog.
+
+One of the first things I like to manually check is the existence of a _robots.txt_ file. There is often valuable site information here that saves time running a discovery tool. The options I used when we ran nmap actually detected this file and gave us some of the information already.
+
+```
+80/tcp   open  http          Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+| http-robots.txt: 4 disallowed entries
+|_/bin/ /config/ /umbraco/ /umbraco_client/
+|_http-title: Anthem.com - Welcome to our blog
+```
+
+There are four entries the site would like to prevent bots from crawling. If we search Google for "umbraco", it's pretty plain that the this is the software being used to power the blog. If we visit the robots document directly in our browser, there appears to be some extra data there as well.
+
+http://anthem/robots.txt
+```
+REDACTED
+
+# Use for all search robots
+User-agent: *
+
+# Define the directories not to crawl
+Disallow: /bin/
+Disallow: /config/
+Disallow: /umbraco/
+Disallow: /umbraco_client/
+```
+
+That should provide enough recon data to answer three more questions.
+
+> - [x] Let's run namp and check what ports are open.
+> - [x] What port is for the web server?
+> - [x] What port is for remote desktop service?
+> - [x] What is a possible password in one of the pages web crawlers check for?
+> - [x] What CMS is the website using?
+> - [x] What is the domain of the website?
+> - [ ] What's the name of the Administrator
+> - [ ] Can we find find the email address of the administrator?
+
+### Blog User Recon
+
+The remaining two questions are a bit trickier and we'll have to examine the blog for clues. Clicking through the posts, you'll find one called "A cheers to our IT department". This post was written by a "James Orchard Halliwell" and it contains a poem. If we Google the phrases, we learn that the name of the poem is also the name of a person. This seems like a pretty good possibility for the name of our administrator.
+
+Next, we'll need to see if we can figure out the email address of the administrator. Another post on the blog entitled "We are hiring" has an author of "Jane Doe". Jane's email (unlike James') is listed as JD@anthem.com. It looks like the site uses a user's initials for their username. We can confirm that we've successfully guessed the administrator's email and found their password in the _robots.txt_ file by using the login page on the `/umbraco/` path.
+
+> - [x] Let's run namp and check what ports are open.
+> - [x] What port is for the web server?
+> - [x] What port is for remote desktop service?
+> - [x] What is a possible password in one of the pages web crawlers check for?
+> - [x] What CMS is the website using?
+> - [x] What is the domain of the website?
+> - [x] What's the name of the Administrator
+> - [x] Can we find find the email address of the administrator?
+
+## Task 2 - Spot the flags
+
+You probably spotted at least one flag so far. The others are hidden in the page sources. We'll cover each one below along with the hints that point you to them.
+
+### Flag 1
+
+> Hint: Have we inspected the pages yet?
+
+The first flag is hidden in a meta tag on the "We are hiring" post page.
+
+http://anthem/archive/we-are-hiring/
+
+![Anthem Flag 1](/assets/img/anthem-2.png)
+
+### Flag 2
+
+> Hint: Search for it
+
+The second flag is hidden in the placeholder text of the search field (on all pages). It stretches out of the viewable area, but can still be seen in the page source.
+
+![Anthem Flag 2](/assets/img/anthem-3.png)
+
+### Flag 3
+
+> Hint: Profile
+
+The third flag is the easiest to spot during recon. It's displayed on Jane Doe's author page.
+
+http://anthem/authors/jane-doe/
+
+![Anthem Flag 3](/assets/img/anthem-4.png)
+
+### Flag 4
+
+> Hint: Have we inspected all the pages yet?
+
+The fourth and final flag is hidden in a meta tag on the "A cheers to our IT department" post page.
+
+http://anthem/archive/a-cheers-to-our-it-department/
+
+![Anthem Flag 4](/assets/img/anthem-5.png)
+
+## Task 3 - Final stage
+
+Now that we've gathered enough information about our target, we can try and log in. If you remember the output from our initial nmap scan, the remote desktop port is open. Using the administrator's username (just their initials) and the password we found, we are able to successfully remote into the machine.
+
+![Anthem RDP](/assets/img/anthem-6.png)
+
+The _user.txt_ file is right there on the desktop and contains the user flag. The next task question "Can we spot the admin password?" tells us that we're probably going to escalate our privileges by loggin in as the Administrator account, we just need to find the password. The hint reads "It is hidden.", so there's probably a hidden file somewhere.
+
+Let's reconfigure Windows Explorer's view options. You can do this by opening an Explorer window and clicking View > Options. On the dialog that pops up, change the "Hidden files and folders" radio button to select "Show hidden files, folders, and drives".
+
+![Show hidden files and folders](/assets/img/anthem-7.png)
+
+Now we can go hunting for hidden files and folders. Luckily we don't have to look far. Right under the root of the C drive, there's a hidden folder called "backup".
+
+![Hidden backup folder](/assets/img/anthem-8.png)
+
+Inside, there's a file called _restore.txt_ but we can't open it. If we examine the file properties we can see the current user owns it, there just aren't any permissions assigned. We can add "Full control" permissions for the current user using the "Security" tab in the file properties dialog.
+
+![File properties](/assets/img/anthem-9.png)
+
+Now we can open the file and we've discovered the Administrator password.
+
+![File properties](/assets/img/anthem-10.png)
+
+If we kill our RDP session and log back in with the user "Administrator" and the password we just found, we get admin access. The final root flag is on the desktop in a file called _root.txt_.
