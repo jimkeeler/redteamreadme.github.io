@@ -50,7 +50,7 @@ Nmap done: 1 IP address (1 host up) scanned in 33.14 seconds
 
 With a pair of ports to look at, I kicked off a longer more complete scan (`nmap -T4 -A -p- picklerick`) and opened my browser.
 
-![](/assets/img/20211228212612.png)
+![Landing page](/assets/img/20211228212612.png)
 
 Not much to look at. There aren't any links or forms. Let's take a look at the page source.
 
@@ -89,7 +89,7 @@ Next, let's run a feroxbuster scan for other pages and directories.
 
 > 🔔 Be sure to give your discovery tool some file extensions to use in its search!
 
-![](/assets/img/20211228215102.png)
+![feroxbuster output](/assets/img/20211228215102.png)
 
 Only an assets directory is available and it doesn't have anything that helps us. Just a few images, bootstrap, and jquery.
 
@@ -111,7 +111,7 @@ Apache/2.4.18 (Ubuntu) Server at picklerick Port 80
 
 Let's run feroxbuster again with a different wordlist. The first run used _directory-list-lowercase-2.3-medium.txt_. This time we'll use _common.txt_.
 
-![](/assets/img/20211228221129.png)
+![More feroxbuster output](/assets/img/20211228221129.png)
 
 Of course! I totally forgot to check _robots.txt_.
 
@@ -150,19 +150,19 @@ $ nikto -url http://picklerick
 
 And there's my mistake. I wasn't running feroxbuster with any file extensions. Nikto found an admin login page for me.
 
-![](/assets/img/20211228223600.png)
+![Login page](/assets/img/20211228223600.png)
 
 ## Admin Portal Access
 
 We probably have a valid username (found in the HTML source), but no password. As I was preparing to mount a brute force attack, I took a mental inventory of obscure information I'd come across so far. What about the odd content I found in _robots.txt_? Let's try it: `R1ckRul3s:REDACTED`
 
-![](/assets/img/20211228224327.png)
+![Command panel](/assets/img/20211228224327.png)
 
 It worked! There also appears to be a built in web shell. It has some restrictions. We can't run the `cat` command.
 
 ## Bypassing Web Shell Restrictions
 
-![](/assets/img/20211228224941.png)
+![Command panel error message](/assets/img/20211228224941.png)
 
 That's easily bypassed though. We can construct a command string by contcatenating strings together like this:
 
@@ -172,7 +172,7 @@ var1="c"; var2="at"; eval "$var1$var2 /etc/passwd"
 
 And it works perfectly.
 
-![[Pasted image 20211228225015.png]]
+![/etc/passwd file contents](/assets/img/20211228225015.png)
 
 ### First Ingredient
 
