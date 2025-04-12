@@ -1,7 +1,6 @@
 ---
 layout: post
 title:  "Mr Robot CTF - TryHackMe"
-author: "dnstun0 (Jim Keeler)"
 date:   2022-01-19 22:45:00 -0500
 categories: tryhackme writeup
 tags: medium

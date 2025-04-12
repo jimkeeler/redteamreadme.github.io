@@ -1,7 +1,6 @@
 ---
 layout: post
 title:  "Anthem - TryHackMe"
-author: "dnstun0 (Jim Keeler)"
 date:   2025-04-07 21:41:38 -0400
 categories: tryhackme writeup
 tags: easy

@@ -1,7 +1,6 @@
 ---
 layout: post
 title:  "Pickle Rick - TryHackMe"
-author: "dnstun0 (Jim Keeler)"
 date:   2021-12-31 13:44:00 -0500
 categories: tryhackme writeup
 tags: easy

@@ -1,7 +1,6 @@
 ---
 layout: post
 title:  "Minotaur's Labyrinth - TryHackMe"
-author: "dnstun0 (Jim Keeler)"
 date:   2022-01-14 13:39:00 -0500
 categories: tryhackme writeup
 tags: medium

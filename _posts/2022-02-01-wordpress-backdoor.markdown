@@ -1,7 +1,6 @@
 ---
 layout: post
 title: "Reversing a WordPress Backdoor"
-author: "dnstun0 (Jim Keeler)"
 date: 2022-02-01 17:00:00 -0500
 ---
 On January 18th, 2022, [Jetpack](https://jetpack.com/) [published](https://jetpack.com/2022/01/18/backdoor-found-in-themes-and-plugins-from-accesspress-themes/) their discovery of a supply chain attack affecting 93 WordPress themes and plugins. An organization called [AccessPress Themes](https://accesspressthemes.com/) had been breached in the first half of September 2021, and the extensions available for download on their site were injected with a backdoor.
