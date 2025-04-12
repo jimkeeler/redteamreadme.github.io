@@ -46,7 +46,7 @@ Nmap done: 1 IP address (1 host up) scanned in 58.58 seconds
 
 Web services are always an easy place to start. If we view it in the browser, there's an interesting series of animations that happen before presenting an in-browser terminal.
 
-![](/assets/img/2021-12-31 21-16.gif)
+![Landing page animation](/assets/img/2021-12-31 21-16.gif)
 
 Each command plays a video or displays some fsociety posts. If we examine the responses in Burp, there are a couple of 404 responses that have actual page content. Apparently this is all running on top of a Wordpress instance.
 
@@ -69,7 +69,7 @@ REDACTED
 
 The _fsocity.dic_ file seems to be a dictionary file which may be useful later. We'll download a copy for now. Next, we'll mess with the administrator login page a little.
 
-![](/assets/img/20220114094201.png)
+![Error indicating a bad username](/assets/img/20220114094201.png)
 
 ## Brute Forcing Wordpress Credentials
 That's interesting. The error message is telling us we used an invalid username. This means we can most likely brute force a valid one. [SecLists](https://github.com/danielmiessler/SecLists) has some great username lists we can try. We just need to feed the list to [hydra](https://github.com/vanhauser-thc/thc-hydra).
@@ -116,7 +116,7 @@ You may notice the output listing above is incomplete. After three hours of gett
 ## Opening a Reverse Shell
 Once logged into the admin dashboard, we can modify the current theme's PHP code to be a reverse shell. You just need to navigate to Appearance > Editor and then select the 404 template.
 
-![](/assets/img/20220114130621.png)
+![Editing the 404 template](/assets/img/20220114130621.png)
 
 I like pentestmonkey's [php-reverse-shell](https://github.com/pentestmonkey/php-reverse-shell). Just modify the destination IP address and port, copy, paste, and save. Make sure you have a listener running and then hit a page that doesn't exist, or the 404 page directly. (e.g. http://mrrobot/404.php)
 
