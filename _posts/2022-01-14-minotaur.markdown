@@ -126,7 +126,7 @@ REDACTED
 
 HTTP and HTTPS are also open.  Let's see what the browser renders.
 
-![](/assets/img/20220114134257.png)
+![Login page](/assets/img/20220114134257.png)
 
 It's a simple login page. We could try brute forcing it, but lets see if there are any other publicly accessible pages.
 
@@ -159,13 +159,13 @@ email=Daedalus&password=REDACTED
 
 It's a captured HTTP request with a username and password. Trying the credentials successfully logs us into the site.
 
-![](/assets/img/20220114135319.png)
+![Landing page after login](/assets/img/20220114135319.png)
 
 # Dumping and Cracking Hashes
 
 There's a search form that lets us query People or Creatures. Trying a typical SQL injection payload works immediately and gets us a complete list of users and password hashes.
 
-![](/assets/img/20220114135843.png)
+![Search results displayed in a table](/assets/img/20220114135843.png)
 
 Let's use [hashcat](https://hashcat.net/hashcat/) and the [rockyou](https://github.com/danielmiessler/SecLists/blob/master/Passwords/Leaked-Databases/rockyou.txt.tar.gz) password list to see if we can crack any of them.
 
@@ -211,7 +211,7 @@ Hash.Target......: creatures
 
 With all of the hashes cracked, we can authenticate as each user and see if any of them have elevated privileges. Sure enough, when we log in as M!notaur there's a flag in the menu and an extra link to "Secret_Stuff".
 
-![](/assets/img/20220114142110.png)
+![Blurred flag in the menu bar](/assets/img/20220114142110.png)
 
 # Exploiting the Echo Panel
 
