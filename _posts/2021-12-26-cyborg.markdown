@@ -10,7 +10,8 @@ tags: easy
 
 [Cyborg](https://tryhackme.com/room/cyborgt8) was an easy [TryHackMe](https://tryhackme.com) box involving misconfiguration and encrypted backup archives. You start by finding an open admin page that has a download link to an encrypted archive. There is a misconfigured squid proxy on the system that allows you to obtain the password, which is then easily cracked. The same password was used to encrypt the archive and the user has left their credentials in a plaintext file within. Those credentials will allow you to log in through SSH. Once on the system, you can escalate your privileges by modifying an MP3 backup script that has been granted sudo privileges.
 
-> 🔔 Please note: To comply with TryHackMe's write-up requirements, I've included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+> Please note: To comply with TryHackMe's write-up requirements, I've included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+{: .prompt-info }
 
 ## Initial Enumeration
 Let's start with a scan to see what kind of attack surface we're working with.

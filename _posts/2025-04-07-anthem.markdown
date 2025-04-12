@@ -10,11 +10,8 @@ tags: easy
 
 I completed another easy room today on [TryHackMe](https://tryhackme.com) trying to work myself into a new habit of doing write-ups regularly. [Anthem](https://tryhackme.com/room/anthem) is a great box for beginners because the only tool you need is nmap. All of the flags are discoverable using recon. Here we go!
 
-<!-- markdownlint-capture -->
-<!-- markdownlint-disable -->
 > Please note: To comply with TryHackMe's write-up requirements, I've included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
 {: .prompt-info }
-<!-- markdownlint-restore -->
 
 ## Task 1 - Website Analysis
 

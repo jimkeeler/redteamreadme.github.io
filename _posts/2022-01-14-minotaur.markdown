@@ -10,7 +10,8 @@ tags: medium
 
 [Minotaur's Labyrinth](https://tryhackme.com/room/labyrinth8llv) is another vulnerable web application with a built-in web shell for gaining user access. The labyrinth theme keeps things interesting and you have to find a privileged user by cracking some passwords before you can access the web shell. There are also a pair of flags hidden along the way which give this box a CTF feel. Overall, it was enjoyable challenge. Let's get started on how to solve it.
 
-> 🔔 Please note: To comply with TryHackMe’s write-up requirements, I’ve included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+> Please note: To comply with TryHackMe’s write-up requirements, I’ve included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+{: .prompt-info }
 
 # Initial Enumeration
 

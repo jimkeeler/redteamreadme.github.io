@@ -10,7 +10,8 @@ tags: medium
 
 [Mr Robot CTF](https://tryhackme.com/room/mrrobot) has been the most frustrating I've encountered so far; and not for reasons of difficulty. There are two brute force tasks that must be completed to obtain credentials, and the [TryHackMe](https://tryhackme.com/) throttling I experienced makes this unbearably slow. If you're going to attempt this box, I'd recommend watching the walkthrough and grabbing the credentials from there or just skipping this box entirely.
 
-> 🔔 Please note: To comply with TryHackMe’s write-up requirements, I’ve included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+> Please note: To comply with TryHackMe’s write-up requirements, I’ve included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+{: .prompt-info }
 
 ## Initial Enumeration
 As always, we'll start with an nmap scan to find a quick starting point.
