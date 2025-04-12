@@ -10,7 +10,8 @@ tags: easy
 
 I completed another easy room today on [TryHackMe](https://tryhackme.com) trying to work myself into a new habit of doing write-ups regularly. [Anthem](https://tryhackme.com/room/anthem) is a great box for beginners because the only tool you need is nmap. All of the flags are discoverable using recon. Here we go!
 
-> 🔔 Please note: To comply with TryHackMe's write-up requirements, I've included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+> Please note: To comply with TryHackMe's write-up requirements, I've included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+{: .prompt-info }
 
 ## Task 1 - Website Analysis
 
@@ -90,7 +91,6 @@ One of the first things I like to manually check is the existence of a _robots.t
 
 There are four entries the site would like to prevent bots from crawling. If we search Google for "umbraco", it's pretty plain that the this is the software being used to power the blog. If we visit the robots document directly in our browser, there appears to be some extra data there as well.
 
-http://anthem/robots.txt
 ```
 REDACTED
 
@@ -103,6 +103,7 @@ Disallow: /config/
 Disallow: /umbraco/
 Disallow: /umbraco_client/
 ```
+{: file='http://anthem/robots.txt'}
 
 That should provide enough recon data to answer three more questions.
 
