@@ -7,7 +7,7 @@ tags: medium
 ---
 ![Blog Banner](/assets/img/blog-banner.png)
 
-This medium-difficulty [TryHackMe](https://tryhackme.com) box creates a pretty realistic penetration testing scenario with a metasploitable web service, a SUID escalation, and a few rabbit holes to distract you. My favorite part was a brief disassembly exercise to determine the functionality of a mystery binary. Get your toolkit ready and follow along for a solution to Blog.
+This medium-difficulty [TryHackMe](https://tryhackme.com) box creates a pretty realistic penetration testing scenario with a metasploitable web service, a SUID escalation, and a few rabbit holes to distract you. My favorite part was a brief disassembly exercise to determine the functionality of a mystery binary. Get your toolkit ready and follow along for a solution to [Blog](https://tryhackme.com/r/room/blog).
 
 > Please note: To comply with TryHackMe's write-up requirements, I've included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
 {: .prompt-info }
